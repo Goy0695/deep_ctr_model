@@ -1,11 +1,9 @@
-import tensorflow as tf
-from Config import *
-from Config import FLAGS
+from config.config import *
+from config.config import FLAGS
 
 class basemodel:
 
-    def __init__(self,params,config):
-        self.params = params
+    def __init__(self,config):
         self.config = config
         self.model = None
 

@@ -1,8 +1,33 @@
 import tensorflow as tf
-from src.base.model import basemodel
 
+class FM:
 
-class FM(basemodel):
+    def __init__(self,config,params):
+        self.config = config
+        self.model = None
+        global fm_params
+        fm_params = params
+
+    def input_fn(filenames,batch_size=32, num_epochs=1, perform_shuffle=False):
+        print('Parsing', filenames)
+        def decode_libsvm(line):
+            columns = tf.string_split([line], ' ')
+            labels = tf.string_to_number(columns.values[0], out_type=tf.float32)
+            splits = tf.string_split(columns.values[1:], ':')
+            id_vals = tf.reshape(splits.values,splits.dense_shape)
+            feat_ids, feat_vals = tf.split(id_vals,num_or_size_splits=2,axis=1)
+            feat_ids = tf.string_to_number(feat_ids, out_type=tf.int32)
+            feat_vals = tf.string_to_number(feat_vals, out_type=tf.float32)
+            return {"feat_ids": feat_ids, "feat_vals": feat_vals}, labels
+        dataset = tf.data.TextLineDataset(filenames).map(decode_libsvm, num_parallel_calls=10).prefetch(500000)
+        if perform_shuffle:
+            dataset = dataset.shuffle(buffer_size=256)
+        # epochs from blending together.
+        dataset = dataset.repeat(num_epochs)
+        dataset = dataset.batch(batch_size) # Batch size to use
+        iterator = dataset.make_one_shot_iterator()
+        batch_features, batch_labels = iterator.get_next()
+        return batch_features, batch_labels
 
     def model_fn(features, labels, mode,params):
         """Bulid Model function f(x) for Estimator."""
@@ -12,8 +37,6 @@ class FM(basemodel):
         embedding_size = params["embedding_size"]
         l2_reg = params["l2_reg"]
         learning_rate = params["learning_rate"]
-        layers = list(map(int, params["deep_layers"].split(',')))
-        dropout = list(map(float, params["dropout"].split(',')))
 
         #------bulid weights------
         FM_B = tf.get_variable(name='fm_bias', shape=[1], initializer=tf.constant_initializer(0.0))
@@ -90,7 +113,24 @@ class FM(basemodel):
                 train_op=train_op)
         return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=train_op)
 
-    def compile(self):
+    def compile(self,model_dir=None):
         run_config = self.config
-        params = self.params
-        self.model = tf.estimator.Estimator(model_fn= FM.model_fn, params = params,config=run_config)
+        self.model = tf.estimator.Estimator(model_fn= FM.model_fn, model_dir=model_dir,params = fm_params,config=run_config)
+
+    def train(self,tr_files,va_files):
+        self.model.train(input_fn=lambda: FM.input_fn(tr_files,num_epochs=fm_params["num_epochs"], batch_size=fm_params["batch_size"]))
+
+    def evaluate(self,va_files):
+        self.model.evaluate(input_fn=lambda: FM.input_fn(va_files, num_epochs=1, batch_size=fm_params["batch_size"]))
+
+    def predict(self,te_files,isSave=False,numToSave=10):
+        P_G = self.model.predict(input_fn=lambda: FM.input_fn(te_files, num_epochs=1, batch_size=1), predict_keys="prob")
+        if isSave:
+            with open(te_files,'r') as f1,open('sample.unitest', "w") as f2:
+                for i in range(numToSave):
+                    sample = f1.readline()
+                    result = next(P_G)
+                    pred = str(result['prob'])
+                    f2.write('\t'.join([pred,sample]))
+
+

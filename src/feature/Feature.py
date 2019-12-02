@@ -16,7 +16,7 @@ class CategoryDictGenerator:
             self.dicts.append(collections.defaultdict(int))
 
     def build(self, input_dir, categorial_features, cutoff=0):
-        datafile = input_dir + '/criteo_train.txt'
+        datafile = input_dir + '/train.txt'
         with open(datafile, 'r') as f:
             for line in f:
                 features = line.rstrip('\n').split(',')
@@ -53,7 +53,7 @@ class ContinuousFeatureGenerator:
         self.cdf_bounary = []
 
     def clip(self,input_dir,continous_features,percent=0.95):
-        input_path = input_dir + '/criteo_train.txt'
+        input_path = input_dir + '/train.txt'
         continous_clip = []
         df = pd.read_csv(input_path,sep=',',header=None)
         for i in continous_features:
@@ -62,7 +62,7 @@ class ContinuousFeatureGenerator:
         self.cliplist = continous_clip
 
     def get_bounary(self,input_dir,continous_features):
-        input_path = input_dir + '/criteo_train.txt'
+        input_path = input_dir + '/train.txt'
         cdf_table = {}
         df = pd.read_csv(input_path,sep=',',header=None)
         for i in continous_features:
@@ -71,14 +71,16 @@ class ContinuousFeatureGenerator:
         del df
 
     def build(self, input_dir, continous_features):
-        datafile = input_dir + '/criteo_train.txt'
+        datafile = input_dir + '/train.txt'
         with open(datafile, 'r') as f:
+            num = 0
             for line in f:
+                num = num +1
                 features = line.rstrip('\n').split(',')
                 for i in range(0, self.num_feature):
                     val = features[continous_features[i]]
                     if val != '':
-                        val = int(val)
+                        val = float(val)
                         if val > self.cliplist[i]:
                             val = self.cliplist[i]
                         self.min[i] = min(self.min[i], val)
