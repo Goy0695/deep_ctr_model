@@ -13,8 +13,18 @@ class FFM:
 
     @staticmethod
     def input_fn(filenames, batch_size=32, num_epochs=1, perform_shuffle=False):
+        def decode_libsvm(line):
+            columns = tf.string_split([line], ' ')
+            labels = tf.string_to_number(columns.values[0], out_type=tf.float32)
+            splits = tf.string_split(columns.values[1:], ':')
+            id_vals = tf.reshape(splits.values, splits.dense_shape)
+            field_ids, feat_ids, feat_vals = tf.split(id_vals, num_or_size_splits=3, axis=1)
+            field_ids = tf.string_to_number(field_ids, out_type=tf.int32)
+            feat_ids = tf.string_to_number(feat_ids, out_type=tf.int32)
+            feat_vals = tf.string_to_number(feat_vals, out_type=tf.float32)
+            return {"field_ids": field_ids, "feat_ids": feat_ids, "feat_vals": feat_vals}, labels
 
-        dataset = tf.data.TextLineDataset(filenames).map(decode_csv, num_parallel_calls=10).prefetch(500000)
+        dataset = tf.data.TextLineDataset(filenames).map(decode_libsvm, num_parallel_calls=10).prefetch(500000)
         if perform_shuffle:
             dataset = dataset.shuffle(buffer_size=256)
         # epochs from blending together.
@@ -32,6 +42,7 @@ class FFM:
         embedding_size = params["embedding_size"]
         l2_reg = params["l2_reg"]
         learning_rate = params["learning_rate"]
+        batch_size = params["batch_size"]
         """
          column_size —— c
          feature_size —— n
@@ -40,7 +51,6 @@ class FFM:
 
         """
         # ----new weight and bias
-
         # shape [n]
         W1 = tf.get_variable(name='first_order_weight', shape=[feature_size],
                              initializer=tf.glorot_normal_initializer())
@@ -54,7 +64,9 @@ class FFM:
         feat_ids = tf.reshape(feat_ids, shape=[-1, column_size])  # shape [None,c]
         feat_vals = features['feat_vals']
         feat_vals = tf.reshape(feat_vals, shape=[-1, column_size])  # shape [None,c]
-        field_ids_n = tf.reshape([field_ids[:, i] + i * field_size for i in range(column_size)], [-1, column_size])
+        field_ids_n = tf.reshape(
+            [field_ids[i, j] + j * field_size + i * 6 for i in range(batch_size) for j in range(column_size)],
+            [-1, column_size])  # shape [None,c]
 
         # ----build first order layer----
         with tf.variable_scope('first-order'):
@@ -64,22 +76,23 @@ class FFM:
         # ----build field interaction layer----
         with tf.variable_scope('second-order'):
             embeddings = tf.nn.embedding_lookup(tf.reshape(tf.nn.embedding_lookup(W2, feat_ids), [-1, embedding_size]),
-                                                field_ids_n)  # None * c * f * K
+                                                field_ids_n)  # None * c * K
             feat_vals = tf.reshape(feat_vals, shape=[-1, column_size, 1])  # None * c * 1
-            embeddings = f_embeddings[:, :, ]
+            # embeddings = f_embeddings[:,:,]
             y_w2 = tf.zeros_like(y_w1)
             for i in range(column_size - 1):
                 for j in range(i + 1, column_size):
-                    y_w2 = y_w2 + tf.reduce_sum(tf.multiply(embeddings[:, i, :], embeddings[:, j, :]), 1) * feat_vals[:,
-                                                                                                            i] * feat_vals[
-                                                                                                                 :, j]
+                    y_w2 = y_w2 + tf.expand_dims(
+                        tf.reduce_sum(tf.multiply(embeddings[:, i, :], embeddings[:, j, :]), 1), 1) * feat_vals[:,
+                                                                                                      i] * feat_vals[:,
+                                                                                                           j]
 
         # ---- build output ----
         with tf.variable_scope("out"):
-            y_bias = b * tf.ones_like(y_1, dtype=tf.float32)  # [None, 1]
+            y_bias = tf.get_variable(name='y_bias', shape=[1], initializer=tf.constant_initializer(0.0))
             y = y_bias + y_w1 + y_w2
             pred = tf.sigmoid(y)
-        predictions = {"y": y, "prob": pred}
+        predictions = {"prob": pred}
         export_outputs = {
             tf.saved_model.signature_constants.DEFAULT_SERVING_SIGNATURE_DEF_KEY: tf.estimator.export.PredictOutput(
                 predictions)}
@@ -92,7 +105,7 @@ class FFM:
         # ------bulid loss------
         loss = l2_reg * tf.nn.l2_loss(W1) \
                + l2_reg * tf.nn.l2_loss(W2) \
-               + tf.reduce_sum(tf.log(tf.ones_like(y_1, dtype=tf.float32) + tf.exp(-tf.multiply(labels, y_2))))
+               + tf.reduce_mean(tf.log(tf.ones_like(y, dtype=tf.float32) + tf.exp(-tf.multiply(labels, pred))))
         # Provide an estimator spec for `ModeKeys.EVAL`
         eval_metric_ops = {
             "auc": tf.metrics.auc(labels, pred)

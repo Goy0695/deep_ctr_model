@@ -1,101 +1,139 @@
-import collections
-import pandas as pd
 import sys
+import random
+import pandas as pd
+import os
 import numpy as np
 
-class CategoryDictGenerator:
-    """
-    类别型特征编码字典
-    """
 
-    def __init__(self, num_feature):
-        self.dicts = []
-        self.num_feature = num_feature
+class Feature():
 
-        for i in range(0, num_feature):
-            self.dicts.append(collections.defaultdict(int))
+    def __init__(self):
+        self.columns = ['index', 'field_id', 'type', 'method']
+        self.feature_num = 0
+        self.cliplist = []
+        self.feature_columns = []
+        self.category_columns = []
+        self.continous_columns = []
+        self.feature_table = {}
+        self.q_min = {}
+        self.q_max = {}
+        self.dicts = {}
+        self.dists = {}
+        self.cdf_bounary = {}
 
-    def build(self, input_dir, categorial_features, cutoff=0):
+    def load(self, feature_dir):
+        f_num = 0
+        c_num = 0
+        q_num = 0
+        with open(feature_dir, 'r') as f:
+            for line in f:
+                tz = line.strip('\n').split('\t')
+                index = int(tz[0])
+                filed_id = int(tz[1])
+                f_name = tz[2]
+                f_type = tz[3]
+                f_method = tz[4]
+                self.feature_table[f_name] = dict(zip(self.columns, [index, filed_id, f_type, f_method]))
+                if f_type == 'q':
+                    self.continous_columns.append(f_name)
+                    self.q_min[f_name] = sys.maxsize
+                    self.q_max[f_name] = -sys.maxsize
+                else:
+                    self.category_columns.append(f_name)
+                    self.dicts[f_name] = {}
+                self.feature_columns.append(f_name)
+                f_num = f_num + 1
+            self.feature_num = f_num
+
+    def build(self, input_dir, cutoff, percent):
         datafile = input_dir + '/train.txt'
+        self.cliplist = Feature.continous_clip(self.feature_columns, self.continous_columns, datafile, percent)
         with open(datafile, 'r') as f:
             for line in f:
                 features = line.rstrip('\n').split(',')
-                for i in range(0, self.num_feature):
-                    if features[categorial_features[i]] != '':
-                        self.dicts[i][features[categorial_features[i]]] += 1
-        for i in range(0, self.num_feature):
-            self.dicts[i] = filter(lambda x: x[1] >= cutoff, self.dicts[i].items())
-            self.dicts[i] = sorted(self.dicts[i], key=lambda x: (-x[1], x[0]))
-            vocabs, _ = list(zip(*self.dicts[i]))
-            self.dicts[i] = dict(zip(vocabs, range(1, len(vocabs) + 1)))
-            self.dicts[i]['<unk>'] = 0
+                # 离散特征
+                for item in self.category_columns:
+                    indx = self.feature_table[item]['index'] + 1
+                    if features[indx] != '':
+                        if features[indx] not in self.dicts[item].keys():
+                            self.dicts[item][features[indx]] = 1
+                        else:
+                            self.dicts[item][features[indx]] += 1
+                # 连续特征
+                Feature.continous_build(self.q_min,
+                                        self.q_max,
+                                        self.cliplist,
+                                        features,
+                                        self.feature_table,
+                                        self.continous_columns)
+            self.dicts = Feature.category_build(self.dicts, self.category_columns, 20)
 
-    def gen(self, idx, key):
-        if key not in self.dicts[idx]:
-            res = self.dicts[idx]['<unk>']
+    def gen(self, column, val):
+        if column in self.category_columns:
+            return Feature.category_gen(self.dicts, column, val)
         else:
-            res = self.dicts[idx][key]
-        return res
+            return Feature.continous_gen(column, self.q_min, self.q_max, val)
 
-    def dicts_sizes(self):
-        return list(map(len, self.dicts))
-
-class ContinuousFeatureGenerator:
-    """
-    对连续值特征做最大最小值normalization
-    """
-
-    def __init__(self, num_feature):
-        self.num_feature = num_feature
-        self.min = [sys.maxsize] * num_feature
-        self.max = [-sys.maxsize] * num_feature
-        self.cliplist = []
-        self.cdf_bounary = []
-
-    def clip(self,input_dir,continous_features,percent=0.95):
-        input_path = input_dir + '/train.txt'
-        continous_clip = []
-        df = pd.read_csv(input_path,sep=',',header=None)
-        for i in continous_features:
-            continous_clip.append(df[i].dropna().quantile(percent))
-        del df
-        self.cliplist = continous_clip
-
-    def get_bounary(self,input_dir,continous_features):
+    def get_bounary(self, input_dir):
         input_path = input_dir + '/train.txt'
         cdf_table = {}
-        df = pd.read_csv(input_path,sep=',',header=None)
-        for i in continous_features:
-            feature_column = df[i].tolist()
-            self.cdf_bounary.append(ContinuousFeatureGenerator.cdf_onehot(feature_column))
+        df = pd.read_csv(input_path, sep=',', header=None)
+        df.columns = ['label'] + self.feature_columns
+        for item in self.continous_columns:
+            feature_column = df[item].tolist()
+            self.cdf_bounary[item] = Feature.cdf_onehot(feature_column)
         del df
 
-    def build(self, input_dir, continous_features):
-        datafile = input_dir + '/train.txt'
-        with open(datafile, 'r') as f:
-            num = 0
-            for line in f:
-                num = num +1
-                features = line.rstrip('\n').split(',')
-                for i in range(0, self.num_feature):
-                    val = features[continous_features[i]]
-                    if val != '':
-                        val = float(val)
-                        if val > self.cliplist[i]:
-                            val = self.cliplist[i]
-                        self.min[i] = min(self.min[i], val)
-                        self.max[i] = max(self.max[i], val)
+    @staticmethod
+    def category_build(dicts, category_columns, cutoff):
+        for item in category_columns:
+            dicts[item] = filter(lambda x: x[1] >= cutoff, dicts[item].items())
+            dicts[item] = sorted(dicts[item], key=lambda x: (-x[1], x[0]))
+            vocabs, _ = list(zip(*dicts[item]))
+            dicts[item] = dict(zip(vocabs, range(1, len(vocabs) + 1)))
+            dicts[item]['<unk>'] = 0
+        return dicts
 
-    def gen(self, idx, val):
+    @staticmethod
+    def category_gen(dicts, column, val):
+        if val not in dicts[column]:
+            res = dicts[column]['<unk>']
+        else:
+            res = dicts[column][val]
+        return res
+
+    @staticmethod
+    def continous_clip(feature_columns, continous_columns, data_file, percent=0.95):
+        continous_clip = {}
+        df = pd.read_csv(data_file, sep=',', header=None)
+        df.columns = ['label'] + feature_columns
+        for item in continous_columns:
+            continous_clip[item] = df[item].dropna().quantile(percent)
+        del df
+        return continous_clip
+
+    @staticmethod
+    def continous_build(c_min, c_max, cliplist, features, table, continous_columns):
+        for item in continous_columns:
+            val = features[int(table[item]['index'])]
+            if val != '':
+                val = float(val)
+                if val > cliplist[item]:
+                    val = cliplist[item]
+                c_min[item] = min(c_min[item], val)
+                c_max[item] = max(c_max[item], val)
+
+    @staticmethod
+    def continous_gen(column, q_min, q_max, val):
         if val == '':
             return -100
         val = float(val)
-        return (val - self.min[idx]) / (self.max[idx] - self.min[idx])
+        return (val - q_min[column]) / (q_max[column] - q_min[column])
 
     @staticmethod
-    def cdf_onehot(data_list,slice_num = 20):
+    def cdf_onehot(data_list, slice_num=20):
         thresholds = list()
-        filtered_f_values = list(filter(lambda x: str(x) not in {'nan', 'None', '\\N','NaN','inf'}, data_list))
+        filtered_f_values = list(filter(lambda x: str(x) not in {'nan', 'None', '\\N', 'NaN', 'inf'}, data_list))
         f_length = len(filtered_f_values)
         if f_length != 0:
             margin = 100.0 / slice_num

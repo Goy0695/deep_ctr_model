@@ -1,7 +1,7 @@
 from src.model.GBDT import GBDT
 from src.model.LR import LR
 import re
-from src.feature.FeatureInfo import FeatureInfo
+from src.feature.FeatureInfo_ori import FeatureInfo
 
 
 class GBDT_LR:

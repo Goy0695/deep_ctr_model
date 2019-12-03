@@ -10,6 +10,7 @@ class WideDeep:
         global widedeep_params
         widedeep_params = params
 
+    @staticmethod
     def input_fn(filenames, batch_size=32, num_epochs=1, perform_shuffle=False):
         print('Parsing', filenames)
 
@@ -37,22 +38,26 @@ class WideDeep:
         wide_columns = []
         deep_columns = []
         continous_features = range(1, widedeep_params["continuous_field_size"] + 1)
-        categorial_features = range(widedeep_params["continuous_field_size"] + 1, widedeep_params["field_size"] + 1)
+        categorial_features = range(widedeep_params["continuous_field_size"] + 1, widedeep_params["column_size"] + 1)
 
-        dists = ContinuousFeatureGenerator(len(continous_features))
-        dists.get_bounary(input_dir, continous_features)
-        cdf_bounary = dists.cdf_bounary
-
-        dicts = CategoryDictGenerator(len(categorial_features))
-        dicts.build(input_dir, categorial_features, cutoff=0)
+        # dists = ContinuousFeatureGenerator(len(continous_features))
+        # dists.get_bounary(input_dir,continous_features)
+        # cdf_bounary = dists.cdf_bounary
+        # dicts = CategoryDictGenerator(len(categorial_features))
+        # dicts.build(input_dir, categorial_features, cutoff=0)
+        fea_dir = input_dir + '/feature'
+        fea = Feature()
+        fea.load(fea_dir)
+        fea.build(input_dir, 150, 0.95)
+        fea.get_bounary(input_dir)
 
         # 离散特征
-        for idx in categorial_features:
-            data_list = list(dicts.dicts[idx - categorial_features[0]].keys())
+        for idx in fea.category_columns:
+            data_list = list(fea.dicts[idx].keys())
             data_list = ['-100' if item in ['nan', 'None', '\\N', 'NaN', 'inf'] else item for item in data_list]
             data_list = list(set(data_list))
             data_list.sort()
-            column = FeatureColumns.one_hot(idx, data_list)
+            column = FeatureColumns.one_hot(fea.feature_table[idx]['index'] + 1, data_list)
             wide_columns.append(column)
             deep_columns.append(FeatureColumns.column_embedding(column, widedeep_params["embedding_size"]))
 
@@ -66,10 +71,10 @@ class WideDeep:
                 wide_columns.append(column)
                 deep_columns.append(FeatureColumns.column_embedding(column, widedeep_params["embedding_size"]))
 
-        for idx in continous_features:
-            column = FeatureColumns.numeric(idx)
+        for idx in fea.continous_columns:
+            column = FeatureColumns.numeric(fea.feature_table[idx]['index'] + 1)
             deep_columns.append(column)
-            wide_columns.append(FeatureColumns.column_bucket(column, cdf_bounary[idx - continous_features[0]]))
+            wide_columns.append(FeatureColumns.column_bucket(column, fea.cdf_bounary[idx]))
         widedeep_params["deep_columns"] = deep_columns
         widedeep_params["wide_columns"] = wide_columns
 

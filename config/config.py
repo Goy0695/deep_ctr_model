@@ -1,7 +1,7 @@
 import tensorflow as tf
 root_path = "/home/yu2.guo/notebooks/deep_ctr_model_v1"
-app = "criteo"
-model_type = 'AFM'
+app = "HK_train"
+model_type = 'WideDeep'
 data_path = root_path+"/data/" + app
 model_path = root_path+"/model/"
 FLAGS = tf.app.flags.FLAGS
