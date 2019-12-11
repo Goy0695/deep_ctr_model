@@ -14,7 +14,7 @@ class FFM:
     @staticmethod
     def input_fn(filenames, batch_size=32, num_epochs=1, perform_shuffle=False):
         def decode_libsvm(line):
-            columns = tf.string_split([line], ' ')
+            columns = tf.string_split([line], '\t')
             labels = tf.string_to_number(columns.values[0], out_type=tf.float32)
             splits = tf.string_split(columns.values[1:], ':')
             id_vals = tf.reshape(splits.values, splits.dense_shape)

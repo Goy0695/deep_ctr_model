@@ -13,14 +13,20 @@ class FeatureInfo:
         self.feature_names = None
         self.category_feature_offset = None
 
-    def feamap(self, input_dir, output_dir):
+    def feamap(self, input_dir, output_dir, tmp=False):
         """
         对连续型和类别型特征进行处理
         """
-        fea_dir = input_dir + '/feature'
         fea = Feature()
-        fea.load(fea_dir)
+        print("Starting to load feature file!")
+        if tmp == False:
+            fea_dir = input_dir + '/feature'
+            fea.load(fea_dir)
+        else:
+            fea.tmp_config()
+        print("Starting to preprocess original data!")
         fea.build(input_dir, 150, 0.95)
+        print("Starting to generate feature map!")
         output = open(output_dir + '/feature_map', 'w')
         for i, item in enumerate(fea.continous_columns):
             output.write("{0} {1}\n".format(item, i + 1))
@@ -59,9 +65,9 @@ class FeatureInfo:
                                 indx = indx + 1
                         label = features[0]
                         if random.random() <= thresold:
-                            out_train.write("{0} {1}\n".format(label, ' '.join(feat_vals)))
+                            out_train.write("{0}\t{1}\n".format(label, '\t'.join(feat_vals)))
                         else:
-                            out_valid.write("{0} {1}\n".format(label, ' '.join(feat_vals)))
+                            out_valid.write("{0}\t{1}\n".format(label, '\t'.join(feat_vals)))
         print("Process test data!")
         with open(output_dir + '/te.libsvm', 'w') as out:
             with open(input_dir + '/test.txt', 'r') as f:
@@ -84,7 +90,7 @@ class FeatureInfo:
                             indx = indx + 1
                     out.write("{0} {1}\n".format(label, ' '.join(feat_vals)))
 
-    def libsvm_preprocess_single(self, filename, phase='train'):
+    def ffm_preprocess_single(self, filename, phase='train'):
         print("Process {}!".format(filename))
         if phase == "train":
             out_file = os.path.join('/'.join('./data/gbdt_tmp/train.txt'.split('/')[:-1]), 'tr.libsvm')
@@ -99,15 +105,16 @@ class FeatureInfo:
                     feat_vals = []
                     indx = 0
                     for item in self.feature_names:
+                        field_id = str(self.feature_table[item]['field_id'])
                         val = self.fea.gen(item, features[self.feature_table[item]['index'] + 1])
                         if self.feature_table[item]['type'] == 'q':
-                            feat_vals.append(str(self.feature_table[item]['index']) \
+                            feat_vals.append(field_id + ':' + str(self.feature_table[item]['index']) \
                                              + ':' + "{0:.6f}".format(val).rstrip('0').rstrip('.'))
                         else:
-                            feat_vals.append(str(val + self.category_feature_offset[indx] + 1) + ':1')
+                            feat_vals.append(field_id + ':' + str(val + self.category_feature_offset[indx] + 1) + ':1')
                             indx = indx + 1
                     label = features[0]
-                    out.write("{0} {1}\n".format(label, ' '.join(feat_vals)))
+                    out.write("{0}\t{1}\n".format(label, '\t'.join(feat_vals)))
 
     def csv_preprocess(self, input_dir, output_dir, thresold=0.9):
         random.seed(2019)
@@ -147,14 +154,14 @@ class FeatureInfo:
                             feat_vals.append(str(features[self.feature_table[item]['index'] + 1]))
                     out.write("{0}\n".format(','.join(feat_vals)))
 
-    def ffm_preprocess(self, input_dir, output_dir, thresold=0.9):
+    def ffm_preprocess(self, input_dir, output_dir, thresold=0.7):
         random.seed(2019)
         print("Process train data!")
-        with open(output_dir + '/tr.ffm_libsvm', 'w') as out_train:
-            with open(output_dir + '/va.ffm_libsvm', 'w') as out_valid:
+        with open(output_dir + '/tr.libsvm', 'w') as out_train:
+            with open(output_dir + '/va.libsvm', 'w') as out_valid:
                 with open(input_dir + '/train.txt', 'r') as f:
                     for line in f:
-                        features = line.rstrip('\n').split(',')
+                        features = line.rstrip('\n').split('\t')
                         feat_vals = []
                         indx = 0
                         for item in self.feature_names:
@@ -169,14 +176,14 @@ class FeatureInfo:
                                 indx = indx + 1
                         label = features[0]
                         if random.random() <= thresold:
-                            out_train.write("{0} {1}\n".format(label, ' '.join(feat_vals)))
+                            out_train.write("{0}\t{1}\n".format(label, '\t'.join(feat_vals)))
                         else:
-                            out_valid.write("{0} {1}\n".format(label, ' '.join(feat_vals)))
+                            out_valid.write("{0}\t{1}\n".format(label, '\t'.join(feat_vals)))
         print("Process test data!")
-        with open(output_dir + '/te.ffm_libsvm', 'w') as out:
+        with open(output_dir + '/te.libsvm', 'w') as out:
             with open(input_dir + '/test.txt', 'r') as f:
                 for line in f:
-                    features = line.rstrip('\n').split(',')
+                    features = line.rstrip('\n').split('\t')
                     feat_vals = []
                     if len(self.feature_names) == len(features):
                         label = '0'
@@ -193,4 +200,4 @@ class FeatureInfo:
                         else:
                             feat_vals.append(field_id + ':' + str(val + self.category_feature_offset[indx] + 1) + ':1')
                             indx = indx + 1
-                    out.write("{0} {1}\n".format(label, ' '.join(feat_vals)))
+                    out.write("{0}\t{1}\n".format(label, '\t'.join(feat_vals)))

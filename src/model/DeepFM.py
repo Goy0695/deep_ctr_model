@@ -13,14 +13,28 @@ class DeepFM:
         print('Parsing', filenames)
 
         def decode_libsvm(line):
-            columns = tf.string_split([line], ' ')
+            # columns = tf.string_split([line], ' ')
+            columns = tf.string_split([line], '\t')
             labels = tf.string_to_number(columns.values[0], out_type=tf.float32)
             splits = tf.string_split(columns.values[1:], ':')
             id_vals = tf.reshape(splits.values, splits.dense_shape)
-            feat_ids, feat_vals = tf.split(id_vals, num_or_size_splits=2, axis=1)
+            field_ids, feat_ids, feat_vals = tf.split(id_vals, num_or_size_splits=3, axis=1)
+            field_ids = tf.string_to_number(field_ids, out_type=tf.int32)
             feat_ids = tf.string_to_number(feat_ids, out_type=tf.int32)
             feat_vals = tf.string_to_number(feat_vals, out_type=tf.float32)
             return {"feat_ids": feat_ids, "feat_vals": feat_vals}, labels
+
+        """
+        def decode_libsvm(line):
+            columns = tf.string_split([line], ' ')
+            labels = tf.string_to_number(columns.values[0], out_type=tf.float32)
+            splits = tf.string_split(columns.values[1:], ':')
+            id_vals = tf.reshape(splits.values,splits.dense_shape)
+            feat_ids, feat_vals = tf.split(id_vals,num_or_size_splits=2,axis=1)
+            feat_ids = tf.string_to_number(feat_ids, out_type=tf.int32)
+            feat_vals = tf.string_to_number(feat_vals, out_type=tf.float32)
+            return {"feat_ids": feat_ids, "feat_vals": feat_vals}, labels
+        """
 
         dataset = tf.data.TextLineDataset(filenames).map(decode_libsvm, num_parallel_calls=10).prefetch(500000)
         if perform_shuffle:

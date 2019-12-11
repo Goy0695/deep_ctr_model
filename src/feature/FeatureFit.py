@@ -13,10 +13,11 @@ def transform(input_dir, output_dir):
     #    FeatureInformation.preprocess_v2(input_dir,output_dir)
     FeatureInformation = FeatureInfo()
     FeatureInformation.feamap(input_dir, output_dir)
-    if FLAGS.modeltype in ["DeepFM", "FM", "FNN", "LR", "NFM", "AFM"]:
-        FeatureInformation.libsvm_preprocess(input_dir, output_dir)
-    elif FLAGS.modeltype in ["FFM"]:
+    print("Starting to split train data!")
+    if FLAGS.modeltype in ["DeepFM", "FM", "FNN", "LR", "NFM", "AFM", "FFM"]:
         FeatureInformation.ffm_preprocess(input_dir, output_dir)
+    # elif FLAGS.modeltype in ["FFM"]:
+    #    FeatureInformation.ffm_preprocess(input_dir,output_dir)
     else:
         FeatureInformation.csv_preprocess(input_dir, output_dir)
 

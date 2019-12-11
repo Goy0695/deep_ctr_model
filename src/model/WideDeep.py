@@ -4,20 +4,29 @@ from src.feature.Feature import *
 
 class WideDeep:
 
-    def __init__(self, config, params):
+    def __init__(self, config, params, fea_dir):
         self.config = config
         self.model = None
+        global sample
         global widedeep_params
         widedeep_params = params
+        sample = [[0.0]]
+        with open(fea_dir, 'r') as f:
+            for line in f:
+                tz = line.strip().split('\t')
+                if str(tz[3]) == 'q':
+                    sample.append([0.0])
+                if str(tz[3]) == 'c':
+                    sample.append(['0'])
 
     @staticmethod
     def input_fn(filenames, batch_size=32, num_epochs=1, perform_shuffle=False):
         print('Parsing', filenames)
 
         def decode_csv(line):
-            continus_sample = [[0.0] for i in range(widedeep_params["continuous_field_size"])]
-            category_sample = [["0.0"] for i in range(widedeep_params["category_field_size"])]
-            sample = [[0.0]] + continus_sample + category_sample
+            # continus_sample = [[0.0] for i in range(widedeep_params["continuous_field_size"])]
+            # category_sample = [["0.0"] for i in range(widedeep_params["category_field_size"])]
+            # sample = [[0.0]] + continus_sample + category_sample
             item = tf.decode_csv(line, sample)
             feature = item[1:]
             label = tf.expand_dims(item[0], -1)
@@ -37,8 +46,8 @@ class WideDeep:
     def set_feature_columns(self, input_dir):
         wide_columns = []
         deep_columns = []
-        continous_features = range(1, widedeep_params["continuous_field_size"] + 1)
-        categorial_features = range(widedeep_params["continuous_field_size"] + 1, widedeep_params["column_size"] + 1)
+        # continous_features = range(1,widedeep_params["continuous_field_size"]+1)
+        # categorial_features = range(widedeep_params["continuous_field_size"]+1,widedeep_params["column_size"]+1)
 
         # dists = ContinuousFeatureGenerator(len(continous_features))
         # dists.get_bounary(input_dir,continous_features)
@@ -47,6 +56,7 @@ class WideDeep:
         # dicts.build(input_dir, categorial_features, cutoff=0)
         fea_dir = input_dir + '/feature'
         fea = Feature()
+        # sample = fea.getSample(fea_dir)
         fea.load(fea_dir)
         fea.build(input_dir, 150, 0.95)
         fea.get_bounary(input_dir)

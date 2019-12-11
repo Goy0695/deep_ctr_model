@@ -22,13 +22,13 @@ stack_gbdt_params = {
 stack_fm_params = {
                 "feature_size": 1920,   # num_trees*num_leaves
                 "field_size": 60,      # num_trees
-                "continuous_field_size": 0,
-                "category_field_size": 60, # num_trees
+                #"continuous_field_size": 0,
+                #"category_field_size": 60, # num_trees
                 "loss_type": 'log_loss',
                 "optimizer": 'Adam',
                 "embedding_size": 8,
-                "num_epochs": 100,
-                "batch_size": 512,
+                "num_epochs": 2,
+                "batch_size": 1024,
                 "log_steps": 1000,
                 "learning_rate": 0.001,
                 "l2_reg": 0.0001,

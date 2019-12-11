@@ -1,15 +1,15 @@
 afm_params = {
-            "feature_size": 46,
-            "column_size":9,
-            "field_size": 9,
+            "feature_size": 1467,
+            "column_size":101,
+            "field_size": 101,
             "loss_type": 'log_loss',
             "optimizer": 'Adam',
-            "embedding_size": 4,
-            "attention_size":4,
+            "embedding_size": 8,
+            "attention_size":8,
             "num_epochs": 10,
             "batch_size": 1024,
             "log_steps": 1000,
-            "learning_rate": 0.001,
+            "learning_rate": 0.01,
             "l2_reg": 0.0001
         }
 

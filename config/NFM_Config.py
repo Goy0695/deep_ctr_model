@@ -1,20 +1,19 @@
 nfm_params = {
-            "feature_size": 18165,
-            "field_size": 39,
-            "continuous_field_size": 13,
-            "category_field_size": 26,
+            "feature_size": 1467,
+            "field_size": 101,
+            "column_size":101,
             "loss_type": 'log_loss',
             "optimizer": 'Adam',
-            "deep_layers": '16,8',
+            "deep_layers": '8,8',
             "dropout": 0.5,
             "batch_norm": False,
             "batch_norm_decay": 0.9,
-            "embedding_size": 32,
+            "embedding_size": 8,
             "num_epochs": 10,
-            "batch_size": 1024,
+            "batch_size": 2048,
             "log_steps": 1000,
             "learning_rate": 0.001,
-            "l2_reg": 0.0001
+            "l2_reg": 0.001
         }
 
 feture_columns = {

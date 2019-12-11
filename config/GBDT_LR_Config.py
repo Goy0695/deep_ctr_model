@@ -22,8 +22,8 @@ stack_gbdt_params = {
 stack_lr_params = {
                 "feature_size": 1920,   # num_trees*num_leaves
                 "field_size": 60,      # num_trees
-                "continuous_field_size": 0,
-                "category_field_size": 60, # num_trees
+                #"continuous_field_size": 0,
+                #"category_field_size": 60, # num_trees
                 "learning_rate":0.001,
                 "l2_reg":0.0001,
                 "optimizer":"Adam",
