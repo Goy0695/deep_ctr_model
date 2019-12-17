@@ -54,7 +54,7 @@ class Feature():
             for i, line in enumerate(f):
                 if i == 0:
                     sample = line
-        tz = sample.strip('\n').split(',')[1:]
+        tz = sample.strip('\n').split('\t')[1:]
         f_name = ["C" + str(i + 1) for i in range(len(tz))]
         for i, item in enumerate(f_name):
             self.feature_table[item] = dict(zip(self.columns, [i, i, 'c', 'onehot']))
@@ -80,7 +80,7 @@ class Feature():
             self.cliplist = Feature.continous_clip(self.feature_columns, self.continous_columns, datafile, percent)
             # self.cliplist =  None
         with open(datafile, 'r') as f:
-            for line in f:
+            for indx, line in enumerate(f):
                 features = line.rstrip('\n').split('\t')
                 # 离散特征
                 for item in self.category_columns:
@@ -119,11 +119,11 @@ class Feature():
     @staticmethod
     def category_build(dicts, category_columns, cutoff):
         for item in category_columns:
-            print("{} finished".format(item))
-            dicts[item] = filter(lambda x: x[1] >= cutoff, dicts[item].items())
-            dicts[item] = sorted(dicts[item], key=lambda x: (-x[1], x[0]))
-            vocabs, _ = list(zip(*dicts[item]))
-            dicts[item] = dict(zip(vocabs, range(1, len(vocabs) + 1)))
+            if dicts[item] != {}:
+                dicts[item] = filter(lambda x: x[1] >= cutoff, dicts[item].items())
+                dicts[item] = sorted(dicts[item], key=lambda x: (-x[1], x[0]))
+                vocabs, _ = list(zip(*dicts[item]))
+                dicts[item] = dict(zip(vocabs, range(1, len(vocabs) + 1)))
             dicts[item]['<unk>'] = 0
         return dicts
 
@@ -148,8 +148,7 @@ class Feature():
     @staticmethod
     def continous_build(c_min, c_max, cliplist, features, table, continous_columns):
         for item in continous_columns:
-            print("{} finished".format(item))
-            val = features[int(table[item]['index'])]
+            val = features[int(table[item]['index']) + 1]
             if val not in ['\\N', '', r'\N']:
                 val = float(val)
                 if val > cliplist[item]:
@@ -162,7 +161,10 @@ class Feature():
         if val in ['\\N', '', r'\N']:
             return -100
         val = float(val)
-        return (val - q_min[column]) / (q_max[column] - q_min[column])
+        if q_min[column] == q_max[column]:
+            return val
+        else:
+            return (val - q_min[column]) / (q_max[column] - q_min[column])
 
     @staticmethod
     def cdf_onehot(data_list, slice_num=20):

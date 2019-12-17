@@ -27,6 +27,18 @@ class GBDT_FM:
         print("*************Start to train fm model******************")
         self.FM.train(tr_gbdt_files, va_gbdt_files)
 
+    def train_and_evaluate(self, tr_file, va_file):
+        print("*************Start to train gbdt model******************")
+        self.GBDT.train_and_evaluate(tr_file, va_file)
+        print("*************Preprocess data for fm model******************")
+        FeatureInformation = FeatureInfo()
+        FeatureInformation.feamap('./data/gbdt_tmp/', './data/gbdt_tmp/', tmp=True)
+        FeatureInformation.ffm_preprocess_single('./data/gbdt_tmp/train.txt', phase='train')
+        FeatureInformation.ffm_preprocess_single('./data/gbdt_tmp/val.txt', phase='val')
+        tr_gbdt_files, va_gbdt_files = ['./data/gbdt_tmp/tr.libsvm'], ['./data/gbdt_tmp/va.libsvm']
+        print("*************Start to train fm model******************")
+        self.FM.train_and_evaluate(tr_gbdt_files, va_gbdt_files)
+
     def evaluate(self, tr_file):
         print("*************Start to evaluate fm model******************")
         if re.findall('/([a-z]+).csv', tr_file[0])[0] == 'tr':

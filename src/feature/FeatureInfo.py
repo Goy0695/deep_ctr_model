@@ -52,7 +52,7 @@ class FeatureInfo:
             with open(output_dir + '/va.libsvm', 'w') as out_valid:
                 with open(input_dir + '/train.txt', 'r') as f:
                     for line in f:
-                        features = line.rstrip('\n').split(',')
+                        features = line.rstrip('\n').split('\t')
                         feat_vals = []
                         indx = 0
                         for item in self.feature_names:
@@ -68,27 +68,28 @@ class FeatureInfo:
                             out_train.write("{0}\t{1}\n".format(label, '\t'.join(feat_vals)))
                         else:
                             out_valid.write("{0}\t{1}\n".format(label, '\t'.join(feat_vals)))
-        print("Process test data!")
-        with open(output_dir + '/te.libsvm', 'w') as out:
-            with open(input_dir + '/test.txt', 'r') as f:
-                for line in f:
-                    features = line.rstrip('\n').split(',')
-                    feat_vals = []
-                    if len(self.feature_names) == len(features):
-                        label = '0'
-                        features.insert(0, '0')
-                    else:
-                        label = features[0]
-                    indx = 0
-                    for item in self.feature_names:
-                        val = self.fea.gen(item, features[self.feature_table[item]['index'] + 1])
-                        if self.feature_table[item]['type'] == 'q':
-                            feat_vals.append(str(self.feature_table[item]['index']) \
-                                             + ':' + "{0:.6f}".format(val).rstrip('0').rstrip('.'))
+        if os.path.exists(input_dir + '/test.txt'):
+            print("Process test data!")
+            with open(output_dir + '/te.libsvm', 'w') as out:
+                with open(input_dir + '/test.txt', 'r') as f:
+                    for line in f:
+                        features = line.rstrip('\n').split('\t')
+                        feat_vals = []
+                        if len(self.feature_names) == len(features):
+                            label = '0'
+                            features.insert(0, '0')
                         else:
-                            feat_vals.append(str(val + self.category_feature_offset[indx] + 1) + ':1')
-                            indx = indx + 1
-                    out.write("{0} {1}\n".format(label, ' '.join(feat_vals)))
+                            label = features[0]
+                        indx = 0
+                        for item in self.feature_names:
+                            val = self.fea.gen(item, features[self.feature_table[item]['index'] + 1])
+                            if self.feature_table[item]['type'] == 'q':
+                                feat_vals.append(str(self.feature_table[item]['index']) \
+                                                 + ':' + "{0:.6f}".format(val).rstrip('0').rstrip('.'))
+                            else:
+                                feat_vals.append(str(val + self.category_feature_offset[indx] + 1) + ':1')
+                                indx = indx + 1
+                        out.write("{0} {1}\n".format(label, ' '.join(feat_vals)))
 
     def ffm_preprocess_single(self, filename, phase='train'):
         print("Process {}!".format(filename))
@@ -101,7 +102,7 @@ class FeatureInfo:
         with open(out_file, 'w') as out:
             with open(filename, 'r') as f:
                 for line in f:
-                    features = line.rstrip('\n').split(',')
+                    features = line.rstrip('\n').split('\t')
                     feat_vals = []
                     indx = 0
                     for item in self.feature_names:
@@ -124,35 +125,44 @@ class FeatureInfo:
             with open(output_dir + '/va.csv', 'w') as out_valid:
                 with open(input_dir + '/train.txt', 'r') as f:
                     for line in f:
-                        features = line.rstrip('\n').split(',')
+                        features = line.rstrip('\n').split('\t')
                         feat_vals = [str(features[0])]
                         for item in self.feature_names:
                             if self.feature_table[item]['type'] == 'q':
                                 val = self.fea.gen(item, features[self.feature_table[item]['index'] + 1])
                                 feat_vals.append(str(val))
                             else:
-                                feat_vals.append(str(features[self.feature_table[item]['index'] + 1]))
+                                val = features[self.feature_table[item]['index'] + 1]
+                                if val not in ['\\N', r'\N', 'NAN', 'nan']:
+                                    feat_vals.append(str(val))
+                                else:
+                                    feat_vals.append(str(-1))
                         if random.random() <= thresold:
                             out_train.write("{0}\n".format(','.join(feat_vals)))
                         else:
                             out_valid.write("{0}\n".format(','.join(feat_vals)))
-        print("Process test data!")
-        with open(output_dir + '/te.csv', 'w') as out:
-            with open(input_dir + '/test.txt', 'r') as f:
-                for line in f:
-                    features = line.rstrip('\n').split(',')
-                    if len(self.feature_names) == len(features):
-                        feat_vals = ['0']
-                        features.insert(0, '0')
-                    else:
-                        feat_vals = [str(features[0])]
-                    for item in self.feature_names:
-                        if self.feature_table[item]['type'] == 'q':
-                            val = self.fea.gen(item, features[self.feature_table[item]['index'] + 1])
-                            feat_vals.append(str(val))
+        if os.path.exists(input_dir + '/test.txt'):
+            print("Process test data!")
+            with open(output_dir + '/te.csv', 'w') as out:
+                with open(input_dir + '/test.txt', 'r') as f:
+                    for line in f:
+                        features = line.rstrip('\n').split('\t')
+                        if len(self.feature_names) == len(features):
+                            feat_vals = ['0']
+                            features.insert(0, '0')
                         else:
-                            feat_vals.append(str(features[self.feature_table[item]['index'] + 1]))
-                    out.write("{0}\n".format(','.join(feat_vals)))
+                            feat_vals = [str(features[0])]
+                        for item in self.feature_names:
+                            if self.feature_table[item]['type'] == 'q':
+                                val = self.fea.gen(item, features[self.feature_table[item]['index'] + 1])
+                                feat_vals.append(str(val))
+                            else:
+                                val = features[self.feature_table[item]['index'] + 1]
+                                if val not in ['\\N', r'\N', 'NAN', 'nan']:
+                                    feat_vals.append(str(val))
+                                else:
+                                    feat_vals.append(str(-1))
+                        out.write("{0}\n".format(','.join(feat_vals)))
 
     def ffm_preprocess(self, input_dir, output_dir, thresold=0.7):
         random.seed(2019)
@@ -179,25 +189,27 @@ class FeatureInfo:
                             out_train.write("{0}\t{1}\n".format(label, '\t'.join(feat_vals)))
                         else:
                             out_valid.write("{0}\t{1}\n".format(label, '\t'.join(feat_vals)))
-        print("Process test data!")
-        with open(output_dir + '/te.libsvm', 'w') as out:
-            with open(input_dir + '/test.txt', 'r') as f:
-                for line in f:
-                    features = line.rstrip('\n').split('\t')
-                    feat_vals = []
-                    if len(self.feature_names) == len(features):
-                        label = '0'
-                        features.insert(0, '0')
-                    else:
-                        label = features[0]
-                    indx = 0
-                    for item in self.feature_names:
-                        field_id = str(self.feature_table[item]['field_id'])
-                        val = self.fea.gen(item, features[self.feature_table[item]['index'] + 1])
-                        if self.feature_table[item]['type'] == 'q':
-                            feat_vals.append(field_id + ':' + str(self.feature_table[item]['index']) \
-                                             + ':' + "{0:.6f}".format(val).rstrip('0').rstrip('.'))
+        if os.path.exists(input_dir + '/test.txt'):
+            print("Process test data!")
+            with open(output_dir + '/te.libsvm', 'w') as out:
+                with open(input_dir + '/test.txt', 'r') as f:
+                    for line in f:
+                        features = line.rstrip('\n').split('\t')
+                        feat_vals = []
+                        if len(self.feature_names) == len(features):
+                            label = '0'
+                            features.insert(0, '0')
                         else:
-                            feat_vals.append(field_id + ':' + str(val + self.category_feature_offset[indx] + 1) + ':1')
-                            indx = indx + 1
-                    out.write("{0}\t{1}\n".format(label, '\t'.join(feat_vals)))
+                            label = features[0]
+                        indx = 0
+                        for item in self.feature_names:
+                            field_id = str(self.feature_table[item]['field_id'])
+                            val = self.fea.gen(item, features[self.feature_table[item]['index'] + 1])
+                            if self.feature_table[item]['type'] == 'q':
+                                feat_vals.append(field_id + ':' + str(self.feature_table[item]['index']) \
+                                                 + ':' + "{0:.6f}".format(val).rstrip('0').rstrip('.'))
+                            else:
+                                feat_vals.append(
+                                    field_id + ':' + str(val + self.category_feature_offset[indx] + 1) + ':1')
+                                indx = indx + 1
+                        out.write("{0}\t{1}\n".format(label, '\t'.join(feat_vals)))

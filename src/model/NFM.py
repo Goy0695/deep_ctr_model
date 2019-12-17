@@ -166,6 +166,16 @@ class NFM:
     def evaluate(self, va_files):
         self.model.evaluate(input_fn=lambda: NFM.input_fn(va_files, num_epochs=1, batch_size=nfm_params["batch_size"]))
 
+    def train_and_evaluate(self, tr_files, va_files):
+        evaluator = tf.estimator.experimental.InMemoryEvaluatorHook(
+            estimator=self.model,
+            input_fn=lambda: NFM.input_fn(va_files, num_epochs=1, batch_size=nfm_params["batch_size"]),
+            every_n_iter=nfm_params["val_itrs"])
+        self.model.train(
+            input_fn=lambda: NFM.input_fn(tr_files, num_epochs=nfm_params["num_epochs"],
+                                          batch_size=nfm_params["batch_size"]),
+            hooks=[evaluator])
+
     def predict(self, te_files, isSave=False, numToSave=10):
         P_G = self.model.predict(input_fn=lambda: NFM.input_fn(te_files, num_epochs=1, batch_size=1),
                                  predict_keys="prob")
