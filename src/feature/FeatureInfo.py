@@ -7,7 +7,9 @@ from src.feature.Feature import Feature
 
 class FeatureInfo:
 
-    def __init__(self):
+    def __init__(self, con_method='minmax', cate_method='onehot'):
+        self.con_method = con_method
+        self.cate_method = cate_method
         self.fea = None
         self.feature_table = None
         self.feature_names = None
@@ -17,7 +19,8 @@ class FeatureInfo:
         """
         对连续型和类别型特征进行处理
         """
-        fea = Feature()
+
+        fea = Feature(self.con_method, self.cate_method)
         print("Starting to load feature file!")
         if tmp == False:
             fea_dir = input_dir + '/feature'
